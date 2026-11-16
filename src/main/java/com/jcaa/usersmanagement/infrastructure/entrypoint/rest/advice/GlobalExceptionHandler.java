@@ -1,13 +1,17 @@
 package com.jcaa.usersmanagement.infrastructure.entrypoint.rest.advice;
 
+import com.jcaa.usersmanagement.domain.exception.AplicacionAlreadyExistsException;
+import com.jcaa.usersmanagement.domain.exception.AplicacionNotFoundException;
 import com.jcaa.usersmanagement.domain.exception.DomainException;
 import com.jcaa.usersmanagement.domain.exception.InvalidCredentialsException;
 import com.jcaa.usersmanagement.domain.exception.UserAlreadyExistsException;
 import com.jcaa.usersmanagement.domain.exception.UserNotFoundException;
+import com.jcaa.usersmanagement.infrastructure.adapter.persistence.exception.AplicacionPersistenceException;
 import com.jcaa.usersmanagement.infrastructure.adapter.persistence.exception.PersistenceException;
 import com.jcaa.usersmanagement.infrastructure.entrypoint.rest.dto.response.ApiErrorResponse;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -28,6 +32,34 @@ public class GlobalExceptionHandler {
   @ResponseStatus(HttpStatus.CONFLICT)
   public ApiErrorResponse handleUserAlreadyExists(final UserAlreadyExistsException exception) {
     return new ApiErrorResponse(HttpStatus.CONFLICT.value(), exception.getMessage());
+  }
+
+  @ExceptionHandler(AplicacionNotFoundException.class)
+  @ResponseStatus(HttpStatus.NOT_FOUND)
+  public ApiErrorResponse handleAplicacionNotFound(final AplicacionNotFoundException exception) {
+    return new ApiErrorResponse(HttpStatus.NOT_FOUND.value(), exception.getMessage());
+  }
+
+  @ExceptionHandler(AplicacionAlreadyExistsException.class)
+  @ResponseStatus(HttpStatus.CONFLICT)
+  public ApiErrorResponse handleAplicacionAlreadyExists(
+      final AplicacionAlreadyExistsException exception) {
+    return new ApiErrorResponse(HttpStatus.CONFLICT.value(), exception.getMessage());
+  }
+
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  @ResponseStatus(HttpStatus.BAD_REQUEST)
+  public ApiErrorResponse handleUnreadableBody(final HttpMessageNotReadableException ignored) {
+    return new ApiErrorResponse(
+        HttpStatus.BAD_REQUEST.value(), "El cuerpo de la solicitud no es un JSON valido.");
+  }
+
+  @ExceptionHandler(AplicacionPersistenceException.class)
+  @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+  public ApiErrorResponse handleAplicacionPersistence(
+      final AplicacionPersistenceException ignored) {
+    return new ApiErrorResponse(
+        HttpStatus.INTERNAL_SERVER_ERROR.value(), "Error de persistencia.");
   }
 
   @ExceptionHandler(InvalidCredentialsException.class)
