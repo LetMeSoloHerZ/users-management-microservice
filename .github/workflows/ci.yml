@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feature/**", "feat/**", "chore/**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: Compilar y probar (Maven)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - name: Compilar y ejecutar tests
+        run: ./mvnw -B -ntp verify
+      - name: Guardar el JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: target/users-management-*.jar
+          if-no-files-found: error
+
+  docker-build:
+    name: Construir imagen Docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker build
+        run: docker build -t aplicaciones-spring:ci .
+
+  api-tests:
+    name: Pruebas de API (Postman / Newman)
+    needs: build-test
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: target
+      - name: Crear el esquema
+        run: |
+          which mysql || sudo apt-get install -y mysql-client
+          mysql -h 127.0.0.1 -P 3306 -uroot -proot < src/main/resources/schema.sql
+      - name: Iniciar la aplicacion
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: "3306"
+          DB_NAME: crud_usuarios
+          DB_USERNAME: root
+          DB_PASSWORD: root
+          DB_SSL_MODE: DISABLED
+        run: |
+          nohup java -jar target/users-management-*.jar > app.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fs http://localhost:8080/health > /dev/null; then echo "API arriba"; exit 0; fi
+            sleep 2
+          done
+          echo "La API no arranco"; cat app.log; exit 1
+      - name: Ejecutar la coleccion de Postman
+        run: |
+          npx --yes newman run postman/Ejercicio21-Aplicaciones-Spring.postman_collection.json \
+            --env-var baseUrl=http://localhost:8080
+      - name: Mostrar el log de la app si falla
+        if: failure()
+        run: cat app.log
