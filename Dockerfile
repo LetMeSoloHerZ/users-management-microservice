@@ -13,4 +13,5 @@ COPY --from=build --chown=spring:spring /workspace/target/users-management-*.jar
 USER spring:spring
 
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+# MaxRAMPercentage evita que la JVM supere la memoria del plan gratuito de Render (512 MB).
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
