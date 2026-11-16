@@ -38,3 +38,39 @@ automático de cada commit que llegue a la rama `main`.
 
 Las credenciales nunca deben guardarse en `application.properties` ni en
 `render.yaml`. Para desarrollo local, deben proporcionarse como variables de entorno.
+
+## Ejercicio 21 — Entidad Aplicacion
+
+Se agrego el corte vertical completo de **Aplicacion** (dominio, aplicacion, persistencia JDBC y API REST)
+siguiendo la misma arquitectura hexagonal que `User`.
+
+| Metodo | Ruta | Rol |
+|---|---|---|
+| POST | `/api/aplicaciones` | ADMIN |
+| GET | `/api/aplicaciones` y `/api/aplicaciones/{id}` | ADMIN, REVIEWER |
+| PUT | `/api/aplicaciones/{id}` | ADMIN |
+| DELETE | `/api/aplicaciones/{id}` | ADMIN |
+
+Reglas de negocio: bits 32 o 64; el lenguaje secundario debe diferir del principal; licencias
+`GRATUITA`/`OPEN_SOURCE` exigen precio 0 y `COMERCIAL` exige precio mayor que 0; el nombre es unico.
+
+### Ejecutar en local
+
+```bash
+docker compose up -d mysql          # crea la BD con src/main/resources/schema.sql
+export DB_USERNAME=users_app DB_PASSWORD=local_users_password
+./mvnw spring-boot:run              # Swagger en http://localhost:8080/swagger-ui.html
+```
+
+Login: `POST /api/auth/login` con el administrador inicial y pulsar **Authorize** en Swagger con el token.
+
+### Pruebas de API
+
+La coleccion `postman/Ejercicio21-Aplicaciones-Spring.postman_collection.json` se importa en Postman
+(variable `baseUrl`) y tambien se ejecuta con Newman dentro del workflow de CI.
+
+### CI/CD
+
+- `.github/workflows/ci.yml`: compila y prueba con Maven, construye la imagen Docker y ejecuta la coleccion de Postman contra la API con MySQL.
+- `.github/workflows/deploy.yml`: tras un CI exitoso en `main` dispara el Deploy Hook de Render (secreto `RENDER_DEPLOY_HOOK_URL`).
+- Base de datos en la nube: `database/database_cloud.sql` (TiDB Cloud). Las credenciales se configuran como variables de entorno en Render.
